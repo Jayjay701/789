@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SANFU 潮魔方</title>
+<style>
+* { margin:0; padding:0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #f0f0f0;
+}
+
+#homePage {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: linear-gradient(160deg, #f8f8f8 0%, #ebebeb 100%);
+  transition: opacity 0.5s; z-index: 10;
+}
+.header {
+  position: absolute; top: 0; left: 0; right: 0;
+  text-align: center; padding-top: 20px;
+  pointer-events: none;
+}
+
+/* SANFU brand logo */
+.sanfu-logo {
+  display: inline-block;
+  height: 80px;
+  width: auto;
+  object-fit: contain;
+}
+.logo-sub {
+  font-size: 22px; font-weight: 800; color: #e85a4f;
+  letter-spacing: 10px; margin-top: 6px;
+}
+.header .slogan { font-size: 15px; color: #888; letter-spacing: 6px; margin-top: 8px; }
+
+.scene {
+  width: 360px; height: 360px;
+  display: flex; align-items: center; justify-content: center;
+  perspective: 900px; cursor: grab;
+}
+.scene:active { cursor: grabbing; }
+
+.cube {
+  --z: 50px;
+  width: 300px; height: 300px;
+  position: relative; transform-style: preserve-3d;
+  transition: transform 0.08s ease-out;
+}
+
+/* Each small cubie */
+.cubie {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform-style: preserve-3d;
+}
+.cubie-face {
+  position: absolute;
+  width: 100%; height: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  backface-visibility: hidden;
+}
+.cubie-face::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 50%, rgba(0,0,0,0.06) 100%);
+  pointer-events: none;
+}
+.cubie-face-front  { transform: rotateY(0deg) translateZ(var(--z)); }
+.cubie-face-back   { transform: rotateY(180deg) translateZ(var(--z)); }
+.cubie-face-right  { transform: rotateY(90deg) translateZ(var(--z)); }
+.cubie-face-left   { transform: rotateY(-90deg) translateZ(var(--z)); }
+.cubie-face-top    { transform: rotateX(90deg) translateZ(var(--z)); }
+.cubie-face-bottom { transform: rotateX(-90deg) translateZ(var(--z)); }
+.cubie-face.inner { background: #f5f5f5; }
+
+/* Clickable faces - generic (all faces) */
+.cubie-face.clickable {
+  cursor: pointer;
+  transition: filter 0.15s;
+  animation: pulseHint 2.2s ease-in-out infinite;
+}
+.cubie-face.clickable:hover {
+  filter: brightness(1.12);
+}
+.cubie-face.clickable:active {
+  filter: brightness(0.95);
+}
+
+/* Front face - additional 3D hover transform */
+.cubie-face-front.clickable {
+  transition: transform 0.15s, filter 0.15s;
+}
+.cubie-face-front.clickable:hover {
+  transform: rotateY(0deg) translateZ(calc(var(--z) + 7px)) scale(1.06);
+  filter: brightness(1.12);
+}
+.cubie-face-front.clickable:active {
+  transform: rotateY(0deg) translateZ(calc(var(--z) + 7px)) scale(0.95);
+}
+
+@keyframes pulseHint {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+  50% { box-shadow: 0 0 0 5px rgba(255,255,255,0.35); }
+}
+
+/* Hint bar */
+.hint-bar {
+  position: absolute; bottom: 24px; left: 0; right: 0;
+  text-align: center; pointer-events: none;
+  animation: fadeUp 1.2s ease 2s both;
+}
+.hint-bar span {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.9);
+  padding: 10px 22px; border-radius: 20px;
+  font-size: 15px; color: #888; letter-spacing: 2px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .sanfu-logo { height: 56px; }
+  .logo-sub { font-size: 16px; letter-spacing: 6px; }
+  .header .slogan { font-size: 12px; }
+  .cube { --z: 34px; }
+  .scene { width: 280px; height: 280px; }
+  .hint-bar span { font-size: 13px; padding: 8px 16px; }
+}
+
+/* ==================== DETAIL PAGE ==================== */
+#detailPage {
+  position: fixed; inset: 0;
+  display: none; flex-direction: column;
+  background: #fff; z-index: 20;
+  transition: opacity 0.4s; opacity: 0;
+  overflow: hidden;
+}
+#detailPage.visible { opacity: 1; }
+
+.detail-header {
+  height: 56px; padding: 0 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: #fff; border-bottom: 1px solid rgba(0,0,0,0.06);
+  flex-shrink: 0; z-index: 5;
+}
+.back-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(0,0,0,0.06); border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 18px; color: #333; transition: background 0.2s;
+}
+.back-btn:hover { background: rgba(0,0,0,0.12); }
+.detail-title { font-size: 16px; font-weight: 700; letter-spacing: 3px; color: #1a1a1a; }
+.color-chip { width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0; }
+
+/* ==================== DETAIL BODY: TOP 2/3 ==================== */
+.detail-body {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden;
+}
+.top-section {
+  flex: 1; display: flex; flex-direction: row;
+  min-height: 0; overflow: hidden;
+}
+
+/* Left panel - Outfit Full Body Showcase */
+.left-panel {
+  flex: 1; position: relative;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 20px 16px;
+  overflow: hidden;
+  background: #fafafa;
+  border-right: 4px solid rgba(0,0,0,0.08);
+}
+.left-panel-bg {
+  position: absolute; inset: 0; z-index: 0;
+  transition: background 0.4s;
+  opacity: 0.08;
+}
+.left-panel-bg::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 19px,
+    rgba(0,0,0,0.04) 19px,
+    rgba(0,0,0,0.04) 20px
+  ),
+  repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 19px,
+    rgba(0,0,0,0.04) 19px,
+    rgba(0,0,0,0.04) 20px
+  );
+}
+
+/* Pixel art frame decorations */
+.pixel-frame-tl, .pixel-frame-tr, .pixel-frame-bl, .pixel-frame-br {
+  position: absolute; width: 20px; height: 20px; z-index: 5;
+  pointer-events: none;
+}
+.pixel-frame-tl { top: 12px; left: 12px; border-top: 4px solid #333; border-left: 4px solid #333; }
+.pixel-frame-tr { top: 12px; right: 12px; border-top: 4px solid #333; border-right: 4px solid #333; }
+.pixel-frame-bl { bottom: 12px; left: 12px; border-bottom: 4px solid #333; border-left: 4px solid #333; }
+.pixel-frame-br { bottom: 12px; right: 12px; border-right: 4px solid #333; border-bottom: 4px solid #333; }
+
+/* Outfit showcase container */
+.outfit-showcase {
+  width: 100%; flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  position: relative; z-index: 1;
+  padding: 16px 8px;
+}
+
+/* SANFU logo watermark on left panel */
+.sanfu-watermark {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  opacity: 0.65;
+  pointer-events: none;
+}
+.sanfu-watermark img {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.2));
+}
+.outfit-img-container {
+  width: 280px; height: 420px;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+.outfit-full-img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 20px rgba(0,0,0,0.15));
+  transition: transform 0.4s ease, opacity 0.4s ease;
+  image-rendering: auto;
+}
+.outfit-full-img:hover { transform: scale(1.03); }
+
+/* Outfit label badge */
+.outfit-label-badge {
+  margin-top: 16px;
+  padding: 8px 24px;
+  background: #fff;
+  border: 3px solid #333;
+  border-radius: 4px;
+  text-align: center;
+  position: relative; z-index: 2;
+  box-shadow: 4px 4px 0px rgba(0,0,0,0.15);
+}
+.outfit-label-en {
+  display: block;
+  font-size: 20px; font-weight: 900; letter-spacing: 6px;
+  color: #1a1a1a;
+  line-height: 1.2;
+}
+.outfit-label-cn {
+  display: block;
+  font-size: 11px; font-weight: 600; letter-spacing: 3px;
+  color: #888; margin-top: 2px;
+}
+
+/* Tags on left bottom */
+.left-tags {
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+  margin-top: 12px; position: relative; z-index: 1;
+}
+.style-tag {
+  padding: 5px 12px; border-radius: 3px; font-size: 11px; letter-spacing: 1px;
+  background: rgba(0,0,0,0.05); color: #555;
+  cursor: pointer; transition: all 0.2s;
+  border: 2px solid rgba(0,0,0,0.12);
+  font-weight: 700;
+}
+.style-tag.active { background: #333; color: #fff; border-color: #333; }
+.style-tag:hover { opacity: 0.85; }
+
+/* Right panel - Product list */
+.right-panel {
+  flex: 1; overflow-y: auto;
+  padding: 24px 20px 20px; background: #fff;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Right header */
+.right-header { margin-bottom: 20px; text-align: left; }
+.right-title {
+  font-size: 20px; font-weight: 900; color: #1a1a1a;
+  letter-spacing: 2px; line-height: 1.3;
+}
+.right-title span { color: #e85a4f; }
+.right-subtitle { font-size: 12px; color: #888; letter-spacing: 3px; margin-top: 4px; }
+.right-divider { width: 48px; height: 4px; border-radius: 2px; margin-top: 10px; background: #333; }
+
+/* Product grid */
+.product-grid {
+  width: 100%; max-width: 100%;
+  display: flex; flex-direction: column;
+  gap: 12px; margin-bottom: 20px;
+}
+.product-card {
+  border-radius: 8px; overflow: hidden;
+  background: #fafafa; position: relative; cursor: pointer;
+  box-shadow: 4px 4px 0px rgba(0,0,0,0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 3px solid #333;
+  display: flex; flex-direction: row;
+  align-items: stretch;
+}
+.product-card:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0px rgba(0,0,0,0.15); }
+.product-card:active { transform: scale(0.98); }
+
+/* Product image area */
+.product-img-wrap {
+  width: 100px; min-width: 100px; aspect-ratio: 1;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+  background: #f0f0f0;
+  flex-shrink: 0;
+  border-right: 3px solid #333;
+}
+
+/* CSS Product shapes */
+.p-shape { position: relative; z-index: 1; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.12)); }
+.p-bag { width: 60px; height: 50px; border-radius: 8px 8px 18px 18px; position: relative; }
+.p-bag::before { content: ''; position: absolute; top: -14px; left: 50%; transform: translateX(-50%); width: 28px; height: 18px; border: 3px solid currentColor; border-bottom: none; border-radius: 14px 14px 0 0; opacity: 0.8; }
+.p-dress { width: 50px; height: 62px; border-radius: 10px 10px 6px 6px; position: relative; clip-path: polygon(20% 0%, 80% 0%, 100% 25%, 85% 100%, 15% 100%, 0% 25%); }
+.p-dress::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 14px; height: 10px; background: rgba(255,255,255,0.3); border-radius: 0 0 6px 6px; }
+.p-shoe { width: 64px; height: 30px; border-radius: 30px 10px 16px 8px; position: relative; }
+.p-shoe::before { content: ''; position: absolute; top: -14px; left: 18px; width: 22px; height: 18px; background: currentColor; border-radius: 10px 10px 0 0; opacity: 0.6; }
+.p-hat { width: 56px; height: 36px; border-radius: 28px 28px 4px 4px; position: relative; }
+.p-hat::before { content: ''; position: absolute; bottom: -4px; left: -6px; width: 68px; height: 8px; background: currentColor; border-radius: 4px; opacity: 0.7; }
+.p-coat { width: 54px; height: 64px; border-radius: 12px 12px 6px 6px; position: relative; }
+.p-coat::before, .p-coat::after { content: ''; position: absolute; top: 8px; width: 3px; height: 48px; background: rgba(255,255,255,0.25); border-radius: 2px; }
+.p-coat::before { left: 16px; } .p-coat::after { right: 16px; }
+.p-scarf { width: 28px; height: 66px; border-radius: 14px; position: relative; }
+.p-scarf::before { content: ''; position: absolute; top: -8px; left: 50%; transform: translateX(-50%); width: 40px; height: 8px; background: currentColor; border-radius: 4px; opacity: 0.6; }
+.p-box { width: 42px; height: 56px; border-radius: 8px; position: relative; border: 2px solid rgba(255,255,255,0.25); }
+.p-box::before { content: ''; position: absolute; top: 8px; left: 50%; transform: translateX(-50%); width: 18px; height: 3px; background: rgba(255,255,255,0.3); border-radius: 2px; }
+.p-skirt { width: 52px; height: 56px; clip-path: polygon(25% 0%, 75% 0%, 100% 100%, 0% 100%); border-radius: 0 0 8px 8px; position: relative; }
+.p-gloves { width: 44px; height: 52px; border-radius: 18px 18px 10px 10px; position: relative; }
+.p-gloves::before { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 16px; height: 14px; background: rgba(255,255,255,0.25); border-radius: 8px 8px 0 0; }
+.p-pants { width: 44px; height: 58px; border-radius: 10px 10px 6px 6px; position: relative; }
+.p-pants::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 2px; height: 100%; background: rgba(255,255,255,0.2); }
+
+/* Product info area */
+.product-info { padding: 12px 14px; display: flex; flex-direction: column; justify-content: center; gap: 4px; flex: 1; }
+.product-name { font-size: 14px; font-weight: 800; color: #1a1a1a; letter-spacing: 0.5px; line-height: 1.3; }
+.product-price-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.product-price { font-size: 16px; font-weight: 900; color: #e85a4f; letter-spacing: 0.5px; }
+.product-price .currency { font-size: 12px; font-weight: 600; margin-right: 1px; }
+.product-tag { padding: 3px 10px; border-radius: 3px; font-size: 11px; color: #fff; font-weight: 800; letter-spacing: 1px; flex-shrink: 0; }
+
+/* Cart button */
+.product-cart-btn {
+  position: absolute; top: 8px; right: 8px;
+  width: 28px; height: 28px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; z-index: 3;
+  background: #333; color: #fff;
+  box-shadow: 2px 2px 0px rgba(0,0,0,0.2);
+  animation: cartPulse 2.2s ease-in-out infinite;
+  border: 2px solid #333;
+  cursor: pointer;
+}
+@keyframes cartPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+/* Hover hint */
+.product-hint {
+  position: absolute; top: 8px; left: 8px;
+  padding: 2px 8px; border-radius: 3px; font-size: 9px;
+  background: #333; color: #fff;
+  letter-spacing: 1px; opacity: 0;
+  transition: opacity 0.3s; z-index: 3;
+  font-weight: 800;
+  border: 2px solid #333;
+}
+.product-card:hover .product-hint { opacity: 1; }
+
+/* ==================== MINI CUBE - FLOATING OVERLAY ==================== */
+.mini-cube-overlay {
+  position: fixed;
+  bottom: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: none; flex-direction: column;
+  align-items: center; gap: 10px;
+  pointer-events: auto;
+}
+.mini-cube-overlay.visible {
+  display: flex;
+}
+
+/* MINI CUBE */
+.mini-cube-wrap {
+  position: relative;
+  width: 140px; height: 140px;
+  perspective: 500px; cursor: grab;
+  filter: drop-shadow(0 4px 14px rgba(0,0,0,0.25));
+}
+.mini-cube-wrap:active { cursor: grabbing; }
+.mini-cube {
+  width: 100px; height: 100px;
+  position: absolute; top: 50%; left: 50%;
+  transform-origin: center center; transform-style: preserve-3d;
+  margin-top: -50px; margin-left: -50px;
+  transition: transform 0.08s ease-out;
+}
+.mini-face {
+  position: absolute; width: 100px; height: 100px;
+  display: grid; grid-template-columns: repeat(3,1fr);
+  grid-template-rows: repeat(3,1fr);
+  gap: 3px; padding: 3px; border-radius: 8px;
+  background: rgba(0,0,0,0.1);
+}
+.mini-face-front  { transform: translateZ(50px); }
+.mini-face-back   { transform: rotateY(180deg) translateZ(50px); }
+.mini-face-right  { transform: rotateY(90deg) translateZ(50px); }
+.mini-face-left   { transform: rotateY(-90deg) translateZ(50px); }
+.mini-face-top    { transform: rotateX(90deg) translateZ(50px); }
+.mini-face-bottom { transform: rotateX(-90deg) translateZ(50px); }
+.mini-tile { border-radius: 3px; }
+.mini-hint {
+  position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; color: rgba(255,255,255,0.7); white-space: nowrap;
+  background: rgba(0,0,0,0.35); padding: 2px 6px; border-radius: 6px;
+  letter-spacing: 1px; pointer-events: none;
+}
+
+/* Bottom nav - color dots */
+.detail-nav {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; padding: 8px 14px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 24px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.12);
+  flex-shrink: 0;
+}
+.nav-color-dot {
+  width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+  flex-shrink: 0; transition: transform 0.2s, box-shadow 0.2s; border: 2px solid transparent;
+}
+.nav-color-dot.active { transform: scale(1.25); border-color: rgba(0,0,0,0.25); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.nav-color-dot:hover { transform: scale(1.15); }
+
+/* Slide transitions */
+.slide-left { animation: slideLeft 0.35s ease both; }
+.slide-right { animation: slideRight 0.35s ease both; }
+@keyframes slideLeft { from { transform: translateX(60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideRight { from { transform: translateX(-60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* Detail page responsive */
+@media (max-width: 640px) {
+  .left-panel { min-width: 40%; padding: 12px 8px; border-right: 4px solid rgba(0,0,0,0.08); border-bottom: none; }
+  .outfit-img-container { width: 170px; height: 260px; }
+  .sanfu-watermark img { height: 28px; }
+  .pixel-frame-tl, .pixel-frame-tr, .pixel-frame-bl, .pixel-frame-br { width: 14px; height: 14px; }
+  .outfit-label-badge { padding: 6px 14px; }
+  .outfit-label-en { font-size: 14px; letter-spacing: 3px; }
+  .right-panel { padding: 12px 10px 140px; }
+  .mini-cube-overlay { bottom: 30px; }
+  .mini-cube-wrap { width: 110px; height: 110px; }
+  .mini-cube { width: 76px; height: 76px; margin-top: -38px; margin-left: -38px; }
+  .mini-face { width: 76px; height: 76px; gap: 2px; padding: 2px; border-radius: 6px; }
+  .mini-face-front  { transform: translateZ(38px); }
+  .mini-face-back   { transform: rotateY(180deg) translateZ(38px); }
+  .mini-face-right  { transform: rotateY(90deg) translateZ(38px); }
+  .mini-face-left   { transform: rotateY(-90deg) translateZ(38px); }
+  .mini-face-top    { transform: rotateX(90deg) translateZ(38px); }
+  .mini-face-bottom { transform: rotateX(-90deg) translateZ(38px); }
+  .nav-color-dot { width: 24px; height: 24px; }
+}
+</style>
+</head>
+<body>
+
+<div id="homePage">
+  <div class="header">
+    <img class="sanfu-logo" src="sanfu_logo.jpg" alt="SANFU 三福">
+    <div class="logo-sub">潮魔方</div>
+    <div class="slogan">选色 · 搭配 · 潮出态度</div>
+  </div>
+  <div class="scene" id="mainScene">
+    <div class="cube" id="mainCube"></div>
+  </div>
+  <div class="hint-bar"><span>拖拽旋转 · 点击色格进入穿搭</span></div>
+</div>
+
+<div id="detailPage">
+  <div class="detail-header">
+    <button class="back-btn" id="backBtn">&#8592;</button>
+    <div class="detail-title" id="detailTitle">GREEN 绿</div>
+    <div class="color-chip" id="detailChip"></div>
+  </div>
+  <div class="detail-body" id="detailBody">
+    <!-- Left image + Right products (full height) -->
+    <div class="top-section" id="topSection">
+      <div class="left-panel" id="leftPanel">
+        <div class="left-panel-bg" id="leftPanelBg"></div>
+        <div class="outfit-showcase" id="outfitShowcase">
+          <div class="sanfu-watermark"><img src="sanfu_logo.jpg" alt="SANFU"></div>
+          <div class="pixel-frame-tl"></div>
+          <div class="pixel-frame-tr"></div>
+          <div class="pixel-frame-bl"></div>
+          <div class="pixel-frame-br"></div>
+          <div class="outfit-img-container" id="outfitImgContainer">
+            <img class="outfit-full-img" id="outfitFullImg" src="" alt="穿搭展示">
+          </div>
+          <div class="outfit-label-badge" id="outfitLabelBadge">
+            <span class="outfit-label-en" id="leftLabelEn">GREEN</span>
+            <span class="outfit-label-cn" id="leftLabelCn">绿色系穿搭</span>
+          </div>
+          <div class="left-tags" id="leftTags"></div>
+        </div>
+      </div>
+      <div class="right-panel" id="rightPanel">
+        <div class="right-header" id="rightHeader">
+          <div class="right-title" id="rightTitle">同色系搭配</div>
+          <div class="right-subtitle" id="rightSubtitle">SANFU 潮魔方精选</div>
+          <div class="right-divider" id="rightDivider"></div>
+        </div>
+        <div class="product-grid" id="productGrid"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Floating mini cube overlay -->
+  <div class="mini-cube-overlay" id="miniCubeOverlay">
+    <div class="mini-cube-wrap" id="miniCubeWrap">
+      <div class="mini-cube" id="miniCube">
+        <div class="mini-face mini-face-front"  id="mf-front"></div>
+        <div class="mini-face mini-face-back"   id="mf-back"></div>
+        <div class="mini-face mini-face-right"  id="mf-right"></div>
+        <div class="mini-face mini-face-left"   id="mf-left"></div>
+        <div class="mini-face mini-face-top"    id="mf-top"></div>
+        <div class="mini-face mini-face-bottom" id="mf-bottom"></div>
+      </div>
+      <div class="mini-hint">滑动切色</div>
+    </div>
+    <div class="detail-nav" id="detailNav"></div>
+  </div>
+</div>
+
+<script>
+/* ===================== COLOR DATA ===================== */
+const COLORS = [
+  { idx:0, key:'green',   hex:'#6ABF4B', name:'绿', titleCn:'潮魔方 · 青柠绿调', titleEn:'「绿」色暴击',
+    tags:['清新自然','户外风','活力系'], img:'outfit_green.jpg',
+    outfits:[
+      {shape:'p-hat',   name:'草绿运动帽',     tag:'运动', price:'¥79'},
+      {shape:'p-dress', name:'抹茶绿连衣裙',   tag:'通勤', price:'¥199'},
+      {shape:'p-coat',  name:'军绿色风衣',     tag:'街头', price:'¥329'},
+      {shape:'p-shoe',  name:'绿白配色球鞋',   tag:'日常', price:'¥259'}
+    ]},
+  { idx:1, key:'orange',  hex:'#F5A623', name:'橙', titleCn:'潮魔方 · 落日橙光', titleEn:'橙气炸场',
+    tags:['活力满满','街头感','秋冬必备'], img:'outfit_yellow.jpg',
+    outfits:[
+      {shape:'p-coat',  name:'橘色oversize卫衣',tag:'街头', price:'¥189'},
+      {shape:'p-bag',   name:'焦橙色托特包',    tag:'通勤', price:'¥149'},
+      {shape:'p-scarf', name:'橙棕条纹针织衫',  tag:'日常', price:'¥169'},
+      {shape:'p-shoe',  name:'橘红马丁靴',      tag:'潮流', price:'¥399'}
+    ]},
+  { idx:2, key:'magenta', hex:'#E84393', name:'粉红', titleCn:'潮魔方 · 甜酷粉炸', titleEn:'粉辣觉醒',
+    tags:['少女心爆棚','甜酷风','Y2K复古'], img:'outfit_darkpink.jpg',
+    outfits:[
+      {shape:'p-bag',   name:'玫红色迷你包',    tag:'甜酷', price:'¥99'},
+      {shape:'p-dress', name:'品红吊带背心',    tag:'夏日', price:'¥129'},
+      {shape:'p-coat',  name:'粉红格纹外套',    tag:'Y2K',  price:'¥249'},
+      {shape:'p-pants', name:'荧光粉运动裤',    tag:'潮流', price:'¥159'}
+    ]},
+  { idx:3, key:'blue',    hex:'#2D9CDB', name:'蓝', titleCn:'潮魔方 · 海盐蓝调', titleEn:'蓝调街头',
+    tags:['清爽感','简约系','海洋风'], img:'outfit_blue.jpg',
+    outfits:[
+      {shape:'p-pants', name:'水洗蓝直筒牛仔',  tag:'日常', price:'¥229'},
+      {shape:'p-hat',   name:'海军蓝棒球帽',    tag:'运动', price:'¥69'},
+      {shape:'p-dress', name:'天蓝泡泡袖上衣',  tag:'少女', price:'¥139'},
+      {shape:'p-shoe',  name:'宝蓝撞色运动鞋',  tag:'街头', price:'¥289'}
+    ]},
+  { idx:4, key:'red',     hex:'#EB5757', name:'红', titleCn:'潮魔方 · 炽红浪潮', titleEn:'红焰态度',
+    tags:['红色活力','显眼包','节日感'], img:'outfit_red.jpg',
+    outfits:[
+      {shape:'p-coat',  name:'正红色毛呢大衣',  tag:'冬日', price:'¥459'},
+      {shape:'p-dress', name:'红黑拼接连衣裙',  tag:'通勤', price:'¥269'},
+      {shape:'p-bag',   name:'朱红色背包',      tag:'日常', price:'¥119'},
+      {shape:'p-shoe',  name:'樱桃红芭蕾鞋',   tag:'甜系', price:'¥179'}
+    ]},
+  { idx:5, key:'purple',  hex:'#9B51E0', name:'紫', titleCn:'潮魔方 · 霓虹紫序', titleEn:'紫韵潮玩',
+    tags:['神秘感','ins风','高级紫'], img:'outfit_purple.jpg',
+    outfits:[
+      {shape:'p-coat',  name:'薰衣草紫西装',    tag:'通勤', price:'¥379'},
+      {shape:'p-dress', name:'紫色针织毛衣',    tag:'秋冬', price:'¥189'},
+      {shape:'p-bag',   name:'葡萄紫链条包',    tag:'晚宴', price:'¥219'},
+      {shape:'p-skirt', name:'紫色格纹伞裙',    tag:'复古', price:'¥159'}
+    ]},
+  { idx:6, key:'lime',    hex:'#B8D429', name:'黄绿', titleCn:'潮魔方 · 柠黄荧光', titleEn:'青柠潮动',
+    tags:['多巴胺穿搭','荧光潮','极鲜色系'], img:'outfit_sage.jpg',
+    outfits:[
+      {shape:'p-pants', name:'荧光黄绿卫裤',    tag:'潮流', price:'¥139'},
+      {shape:'p-dress', name:'酸橙色球衣',      tag:'运动', price:'¥109'},
+      {shape:'p-gloves',name:'青柠绿小皮手套',  tag:'配饰', price:'¥89'},
+      {shape:'p-bag',   name:'lime色购物袋',   tag:'日常', price:'¥69'}
+    ]},
+  { idx:7, key:'pink',    hex:'#F2789F', name:'粉', titleCn:'潮魔方 · 蜜桃粉雾', titleEn:'粉雾甜酷',
+    tags:['软妹感','奶甜系','ballet风'], img:'outfit_pink.jpg',
+    outfits:[
+      {shape:'p-dress', name:'粉色芭蕾绑带裙',  tag:'芭蕾', price:'¥239'},
+      {shape:'p-dress', name:'樱花粉蕾丝衬衫',  tag:'少女', price:'¥169'},
+      {shape:'p-coat',  name:'粉白oversize卫衣', tag:'日常', price:'¥159'},
+      {shape:'p-hat',   name:'粉丝带草帽',     tag:'度假', price:'¥79'}
+    ]},
+  { idx:8, key:'yellow',  hex:'#F2C94C', name:'黄', titleCn:'潮魔方 · 暖阳金芒', titleEn:'黄调活力',
+    tags:['阳光感','清新甜','雏菊穿搭'], img:'outfit_lightyellow.jpg',
+    outfits:[
+      {shape:'p-skirt', name:'向日葵黄半裙',   tag:'夏日', price:'¥149'},
+      {shape:'p-coat',  name:'奶黄色皮革夹克',  tag:'街头', price:'¥349'},
+      {shape:'p-dress', name:'柠黄竖条连衣裙',  tag:'日常', price:'¥199'},
+      {shape:'p-box',   name:'黄色条纹高筒袜',  tag:'配饰', price:'¥39'}
+    ]}
+];
+
+const FACE_SOLID = { back: COLORS[4], right: COLORS[5], left: COLORS[3], top: COLORS[1], bottom: COLORS[7] };
+var FACE_COLOR_IDX = { back: 4, right: 5, left: 3, top: 1, bottom: 7 };
+
+/* Generate 9 shades (3x3 diagonal gradient) for a hex color */
+function generateShades(hex, step) {
+  var shades = [];
+  for (var r = 0; r < 3; r++) {
+    for (var c = 0; c < 3; c++) {
+      shades.push(adjustBrightness(hex, (r + c - 2) * step));
+    }
+  }
+  return shades;
+}
+
+/* Precomputed 9-shade arrays for each non-front face */
+var FACE_SHADES = {
+  back:  generateShades(FACE_SOLID.back.hex,  18),
+  right: generateShades(FACE_SOLID.right.hex, 18),
+  left:  generateShades(FACE_SOLID.left.hex,  18),
+  top:   generateShades(FACE_SOLID.top.hex,   18),
+  bottom:generateShades(FACE_SOLID.bottom.hex,18)
+};
+
+/* ===================== RESPONSIVE CUBE PARAMS ===================== */
+function getCubeParams() {
+  var w = window.innerWidth;
+  var isMobile = w <= 480;
+  var S = isMobile ? 70 : 100;
+  var G = 3;
+  var STEP = S + G;
+  var Z = Math.round(S / 2);
+  return { S: S, G: G, STEP: STEP, Z: Z };
+}
+
+/* ===================== BUILD 27 CUBIES ===================== */
+function buildMainCube() {
+  var p = getCubeParams();
+  var cube = document.getElementById('mainCube');
+  cube.innerHTML = '';
+  cube.style.setProperty('--z', p.Z + 'px');
+  var frontGrid = [[0,1,2],[3,4,5],[6,7,8]];
+
+  for (var x = -1; x <= 1; x++) {
+    for (var y = -1; y <= 1; y++) {
+      for (var z = -1; z <= 1; z++) {
+        var cubie = document.createElement('div');
+        cubie.className = 'cubie';
+        cubie.style.width  = p.S + 'px';
+        cubie.style.height = p.S + 'px';
+        cubie.style.marginLeft = '-' + (p.S/2) + 'px';
+        cubie.style.marginTop  = '-' + (p.S/2) + 'px';
+        cubie.style.transform = 'translate3d(' + (x*p.STEP) + 'px,' + (y*p.STEP) + 'px,' + (z*p.STEP) + 'px)';
+        var row = y + 1;
+        var col = x + 1;
+
+        // front
+        var frontFace = document.createElement('div');
+        frontFace.className = 'cubie-face cubie-face-front';
+        if (z === 1) {
+          frontFace.style.background = COLORS[frontGrid[row][col]].hex;
+          frontFace.classList.add('clickable');
+          frontFace.dataset.colorIdx = frontGrid[row][col];
+          frontFace.addEventListener('click', function(e) {
+            if (window._dragMoved) return;
+            openDetailPage(parseInt(this.dataset.colorIdx), 'none');
+          });
+        } else {
+          frontFace.classList.add('inner');
+        }
+        cubie.appendChild(frontFace);
+
+        // back
+        var backFace = document.createElement('div');
+        backFace.className = 'cubie-face cubie-face-back';
+        if (z === -1) {
+          backFace.style.background = FACE_SHADES.back[(y+1)*3+(x+1)];
+          backFace.classList.add('clickable');
+          backFace.dataset.colorIdx = FACE_COLOR_IDX.back;
+          backFace.addEventListener('click', function(e) {
+            if (window._dragMoved) return;
+            openDetailPage(parseInt(this.dataset.colorIdx), 'none');
+          });
+        } else {
+          backFace.classList.add('inner');
+        }
+        cubie.appendChild(backFace);
+
+        // right
+        var rightFace = document.createElement('div');
+        rightFace.className = 'cubie-face cubie-face-right';
+        if (x === 1) {
+          rightFace.style.background = FACE_SHADES.right[(y+1)*3+(z+1)];
+          rightFace.classList.add('clickable');
+          rightFace.dataset.colorIdx = FACE_COLOR_IDX.right;
+          rightFace.addEventListener('click', function(e) {
+            if (window._dragMoved) return;
+            openDetailPage(parseInt(this.dataset.colorIdx), 'none');
+          });
+        } else {
+          rightFace.classList.add('inner');
+        }
+        cubie.appendChild(rightFace);
+
+        // left
+        var leftFace = document.createElement('div');
+        leftFace.className = 'cubie-face cubie-face-left';
+        if (x === -1) {
+          leftFace.style.background = FACE_SHADES.left[(y+1)*3+(z+1)];
+          leftFace.classList.add('clickable');
+          leftFace.dataset.colorIdx = FACE_COLOR_IDX.left;
+          leftFace.addEventListener('click', function(e) {
+            if (window._dragMoved) return;
+            openDetailPage(parseInt(this.dataset.colorIdx), 'none');
+          });
+        } else {
+          leftFace.classList.add('inner');
+        }
+        cubie.appendChild(leftFace);
+
+        // top
+        var topFace = document.createElement('div');
+        topFace.className = 'cubie-face cubie-face-top';
+        if (y === -1) {
+          topFace.style.background = FACE_SHADES.top[(z+1)*3+(x+1)];
+          topFace.classList.add('clickable');
+          topFace.dataset.colorIdx = FACE_COLOR_IDX.top;
+          topFace.addEventListener('click', function(e) {
+            if (window._dragMoved) return;
+            openDetailPage(parseInt(this.dataset.colorIdx), 'none');
+          });
+        } else {
+          topFace.classList.add('inner');
+        }
+        cubie.appendChild(topFace);
+
+        // bottom
+        var bottomFace = document.createElement('div');
+        bottomFace.className = 'cubie-face cubie-face-bottom';
+        if (y === 1) {
+          bottomFace.style.background = FACE_SHADES.bottom[(z+1)*3+(x+1)];
+          bottomFace.classList.add('clickable');
+          bottomFace.dataset.colorIdx = FACE_COLOR_IDX.bottom;
+          bottomFace.addEventListener('click', function(e) {
+            if (window._dragMoved) return;
+            openDetailPage(parseInt(this.dataset.colorIdx), 'none');
+          });
+        } else {
+          bottomFace.classList.add('inner');
+        }
+        cubie.appendChild(bottomFace);
+
+        cube.appendChild(cubie);
+      }
+    }
+  }
+}
+buildMainCube();
+
+/* ===================== RESPONSIVE RESIZE ===================== */
+var _resizeTimer;
+window.addEventListener('resize', function() {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(buildMainCube, 200);
+});
+
+/* ===================== MAIN CUBE DRAG ===================== */
+var mainScene = document.getElementById('mainScene');
+var mainCube = document.getElementById('mainCube');
+var rotX = -20, rotY = -30;
+var isDragging = false, dragMoved = false;
+var startX, startY, lastRotX, lastRotY;
+
+function setTransform(rx, ry) {
+  mainCube.style.transform = 'rotateX(' + rx + 'deg) rotateY(' + ry + 'deg)';
+}
+setTransform(rotX, rotY);
+
+(function autoTilt() {
+  if (!isDragging) { rotY += 0.3; setTransform(rotX, rotY); }
+  requestAnimationFrame(autoTilt);
+})();
+
+function onStart(e) {
+  isDragging = true; dragMoved = false;
+  var cx = e.touches ? e.touches[0].clientX : e.clientX;
+  var cy = e.touches ? e.touches[0].clientY : e.clientY;
+  startX = cx; startY = cy;
+  lastRotX = rotX; lastRotY = rotY;
+  mainScene.style.cursor = 'grabbing';
+}
+function onMove(e) {
+  if (!isDragging) return;
+  e.preventDefault();
+  var cx = e.touches ? e.touches[0].clientX : e.clientX;
+  var cy = e.touches ? e.touches[0].clientY : e.clientY;
+  var dx = cx - startX, dy = cy - startY;
+  if (Math.abs(dx) > 4 || Math.abs(dy) > 4) dragMoved = true;
+  window._dragMoved = dragMoved;
+  rotY = lastRotY + dx * 0.45;
+  rotX = lastRotX - dy * 0.45;
+  setTransform(rotX, rotY);
+}
+function onEnd() {
+  isDragging = false;
+  window._dragMoved = false;
+  mainScene.style.cursor = 'grab';
+}
+
+mainScene.addEventListener('mousedown', onStart);
+mainScene.addEventListener('mousemove', onMove);
+mainScene.addEventListener('mouseup', onEnd);
+mainScene.addEventListener('mouseleave', onEnd);
+mainScene.addEventListener('touchstart', onStart, { passive: false });
+mainScene.addEventListener('touchmove', onMove, { passive: false });
+mainScene.addEventListener('touchend', onEnd);
+
+/* ===================== DETAIL PAGE ===================== */
+var currentColorIdx = 0;
+
+function buildMiniFaces() {
+  var frontEl = document.getElementById('mf-front');
+  frontEl.innerHTML = '';
+  COLORS.forEach(function(c) {
+    var t = document.createElement('div');
+    t.className = 'mini-tile';
+    t.style.background = c.hex;
+    frontEl.appendChild(t);
+  });
+  var shadeMap = { 'mf-back': FACE_SHADES.back, 'mf-right': FACE_SHADES.right, 'mf-left': FACE_SHADES.left, 'mf-top': FACE_SHADES.top, 'mf-bottom': FACE_SHADES.bottom };
+  Object.keys(shadeMap).forEach(function(id) {
+    var el = document.getElementById(id);
+    el.innerHTML = '';
+    for (var i = 0; i < 9; i++) {
+      var t = document.createElement('div');
+      t.className = 'mini-tile';
+      t.style.background = shadeMap[id][i];
+      el.appendChild(t);
+    }
+  });
+}
+buildMiniFaces();
+
+function buildDetailNav() {
+  var nav = document.getElementById('detailNav');
+  nav.innerHTML = '';
+  COLORS.forEach(function(c, i) {
+    var dot = document.createElement('div');
+    dot.className = 'nav-color-dot' + (i === currentColorIdx ? ' active' : '');
+    dot.style.background = c.hex;
+    dot.dataset.idx = i;
+    dot.addEventListener('click', function() {
+      var dir = parseInt(this.dataset.idx) > currentColorIdx ? 'left' : 'right';
+      openDetailPage(parseInt(this.dataset.idx), dir);
+    });
+    nav.appendChild(dot);
+  });
+}
+
+function openDetailPage(idx, slideDir) {
+  currentColorIdx = idx;
+  var page = document.getElementById('detailPage');
+  page.style.display = 'flex';
+  requestAnimationFrame(function() { page.classList.add('visible'); });
+  document.getElementById('miniCubeOverlay').classList.add('visible');
+  var homePage = document.getElementById('homePage');
+  homePage.style.opacity = '0';
+  setTimeout(function() { homePage.style.display = 'none'; }, 300);
+  renderDetailContent(idx, slideDir);
+}
+
+function renderDetailContent(idx, slideDir) {
+  var col = COLORS[idx];
+  currentColorIdx = idx;
+  document.getElementById('detailTitle').textContent = col.titleCn + ' / ' + col.titleEn;
+  document.getElementById('detailChip').style.background = col.hex;
+
+  // Left panel background tint
+  var leftBg = document.getElementById('leftPanelBg');
+  leftBg.style.background = col.hex;
+
+  // Left panel pixel frame color
+  var frameEls = document.querySelectorAll('.pixel-frame-tl, .pixel-frame-tr, .pixel-frame-bl, .pixel-frame-br');
+  frameEls.forEach(function(el) { el.style.borderColor = col.hex; });
+
+  // Full body outfit image
+  var img = document.getElementById('outfitFullImg');
+  img.style.opacity = '0';
+  img.style.transform = 'translateY(10px)';
+  img.src = col.img;
+  img.onload = function() { img.style.opacity = '1'; img.style.transform = 'translateY(0)'; };
+
+  // Label badge
+  document.getElementById('leftLabelEn').textContent = col.titleEn;
+  document.getElementById('leftLabelCn').textContent = col.name + '系穿搭';
+
+  // Label badge border color
+  var badge = document.getElementById('outfitLabelBadge');
+  badge.style.borderColor = col.hex;
+  badge.style.boxShadow = '4px 4px 0px ' + col.hex + '33';
+
+  // Left tags
+  var leftTags = document.getElementById('leftTags');
+  leftTags.innerHTML = '';
+  col.tags.forEach(function(tag, i) {
+    var t = document.createElement('div');
+    t.className = 'style-tag' + (i === 0 ? ' active' : '');
+    t.textContent = tag;
+    if (i === 0) { t.style.background = col.hex; t.style.color = '#fff'; t.style.borderColor = col.hex; }
+    leftTags.appendChild(t);
+  });
+
+  // Right header
+  document.getElementById('rightTitle').innerHTML = '「' + col.name + '」<span>同色系搭配</span>';
+  document.getElementById('rightDivider').style.background = col.hex;
+
+  // Product grid
+  var grid = document.getElementById('productGrid');
+  if (slideDir === 'left') grid.classList.add('slide-left');
+  else if (slideDir === 'right') grid.classList.add('slide-right');
+  grid.addEventListener('animationend', function() { grid.classList.remove('slide-left', 'slide-right'); }, { once: true });
+
+  grid.innerHTML = '';
+  col.outfits.forEach(function(outfit, i) {
+    var card = document.createElement('div');
+    card.className = 'product-card';
+    card.style.animationDelay = (i * 0.06) + 's';
+    card.innerHTML =
+      '<div class="product-img-wrap" style="background:' + col.hex + '15">' +
+        '<div class="p-shape ' + outfit.shape + '" style="background:' + col.hex + ';color:' + adjustBrightness(col.hex, -25) + '"></div>' +
+        '<div class="product-hint">点击前往选购</div>' +
+        '<button class="product-cart-btn" style="background:' + col.hex + ';border-color:' + col.hex + ';color:#fff">🛒</button>' +
+      '</div>' +
+      '<div class="product-info">' +
+        '<div class="product-name">' + outfit.name + '</div>' +
+        '<div class="product-price-row">' +
+          '<div class="product-price"><span class="currency">¥</span>' + outfit.price.replace('¥','') + '</div>' +
+          '<div class="product-tag" style="background:' + col.hex + '">' + outfit.tag + '</div>' +
+        '</div>' +
+      '</div>';
+    card.addEventListener('click', function() {
+      window.open('https://www.sanfu.com/', '_blank');
+    });
+    grid.appendChild(card);
+  });
+
+  buildDetailNav();
+  syncMiniCubeColor(idx);
+}
+
+/* Adjust hex color brightness */
+function adjustBrightness(hex, amount) {
+  hex = hex.replace('#', '');
+  var r = Math.max(0, Math.min(255, parseInt(hex.substring(0, 2), 16) + amount));
+  var g = Math.max(0, Math.min(255, parseInt(hex.substring(2, 4), 16) + amount));
+  var b = Math.max(0, Math.min(255, parseInt(hex.substring(4, 6), 16) + amount));
+  return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
+function syncMiniCubeColor(idx) {
+  miniRotX = -18; miniRotY = -25;
+  setMiniTransform(miniRotX, miniRotY);
+}
+
+/* ===================== MINI CUBE DRAG ===================== */
+var miniWrap = document.getElementById('miniCubeWrap');
+var miniCubeEl = document.getElementById('miniCube');
+var miniRotX = -18, miniRotY = -25;
+var miniDragging = false, miniDragMoved = false;
+var miniStartX, miniStartY, miniLastRX, miniLastRY;
+
+function setMiniTransform(rx, ry) {
+  miniCubeEl.style.transform = 'rotateX(' + rx + 'deg) rotateY(' + ry + 'deg)';
+}
+setMiniTransform(miniRotX, miniRotY);
+
+function miniOnStart(e) {
+  e.stopPropagation();
+  miniDragging = true; miniDragMoved = false;
+  var cx = e.touches ? e.touches[0].clientX : e.clientX;
+  var cy = e.touches ? e.touches[0].clientY : e.clientY;
+  miniStartX = cx; miniStartY = cy;
+  miniLastRX = miniRotX; miniLastRY = miniRotY;
+  miniWrap.style.cursor = 'grabbing';
+}
+function miniOnMove(e) {
+  if (!miniDragging) return;
+  e.preventDefault(); e.stopPropagation();
+  var cx = e.touches ? e.touches[0].clientX : e.clientX;
+  var cy = e.touches ? e.touches[0].clientY : e.clientY;
+  var dx = cx - miniStartX, dy = cy - miniStartY;
+  if (Math.abs(dx) > 4 || Math.abs(dy) > 4) miniDragMoved = true;
+  miniRotY = miniLastRY + dx * 0.6;
+  miniRotX = miniLastRX - dy * 0.6;
+  setMiniTransform(miniRotX, miniRotY);
+}
+function miniOnEnd(e) {
+  if (!miniDragging) return;
+  miniDragging = false;
+  miniWrap.style.cursor = 'grab';
+  if (!miniDragMoved) return;
+  var cx = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+  var totalDx = cx - miniStartX;
+  if (Math.abs(totalDx) > 30) {
+    var dir = totalDx < 0 ? 1 : -1;
+    var nextIdx = (currentColorIdx + dir + COLORS.length) % COLORS.length;
+    var slideDir = dir > 0 ? 'left' : 'right';
+    renderDetailContent(nextIdx, slideDir);
+    miniRotX = -18;
+    miniRotY = miniRotY + (dir * 90);
+    setMiniTransform(miniRotX, miniRotY);
+  }
+}
+
+miniWrap.addEventListener('mousedown', miniOnStart);
+miniWrap.addEventListener('mousemove', miniOnMove);
+miniWrap.addEventListener('mouseup', miniOnEnd);
+miniWrap.addEventListener('mouseleave', function(e) { if (miniDragging) miniOnEnd(e); });
+miniWrap.addEventListener('touchstart', miniOnStart, { passive: false });
+miniWrap.addEventListener('touchmove', miniOnMove, { passive: false });
+miniWrap.addEventListener('touchend', miniOnEnd);
+
+/* ===================== BACK BUTTON ===================== */
+document.getElementById('backBtn').addEventListener('click', function() {
+  var page = document.getElementById('detailPage');
+  page.classList.remove('visible');
+  document.getElementById('miniCubeOverlay').classList.remove('visible');
+  setTimeout(function() { page.style.display = 'none'; }, 400);
+  var home = document.getElementById('homePage');
+  home.style.display = 'flex';
+  home.style.opacity = '0';
+  requestAnimationFrame(function() { home.style.opacity = '1'; });
+  home.style.transition = 'opacity 0.4s';
+});
+</script>
+</body>
+</html>
